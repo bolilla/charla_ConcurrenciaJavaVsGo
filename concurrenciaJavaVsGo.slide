@@ -1,0 +1,411 @@
+Concurrencia: Java Vs Go
+Tags: go, golang, concurrency, java
+
+Borja Roux
+Programador Java y programador Go
+borja.roux@gmail.com
+
+http://gopadawan.wordpress.com
+
+@borja_roux
+
+* Presentación del presentador
+
+* 
+
+.image ./gopad1.jpg
+
+Jefe de proyecto de día ... programador de noche
+
+Apasionado del desarrollo en general y de Go en particular
+
+Programador Java certificado (Java 1.5)
+
+* Presentación de la presentación
+
+* Lo que vamos a ver
+
+*Objetivo*: Mostrar el camino que un humilde servidor ha seguido para comprender la concurrencia en Go partiendo de Java
+
+*Alcance*
+
+- El lenguaje, parte de las librerías básicas y las herramientas "oficiales" del lenguaje
+
+*Lo*que*vendría*bien*saber*seguir*antes*de*la*charla* (pero que ahora veremos)
+
+- Saber qué es la concurrencia (nivel: _iniciado_)
+- Conocer la sintaxis de los dos lenguajes (nivel: _avanzado_)
+- Saber qué son las go-rutinas (Go), los threads (Java), los canales (Go) y los monitores (Java) (nivel: _riesgo_de_aburrimiento_)
+
+* Lo que NO vamos a ver
+
+- Discursiones teóricas (nada de filósifos comiendo espagueti)
+- Comparación entre las bases de la concurrencia en los dos lenguajes
+- Pruebas de rendimiento
+- Comparaciones técnicas a bajo nivel
+- Comparar el ecosistema alrededor del lenguaje
+- Paralelización (bueno, un poco sí, pero sólo un poco)
+- Trataré de evitar frases tipo: "Go es mejor porque..."
+
+* Comparación de la comparación
+
+* Poniendo en perspectiva los lenguajes
+
+Todas las comparaciones son odiosas; especialmente cuando los contextos son tan distintos
+
+- *Edad* (aprox.): Java 1995 Vs Go 2009
+- *Uso* (TIOBE marzo 2014): Java 2º Vs Go 36º
+- *Libros*amazon.com*: Java 20.000+ Vs Go 9
+- *Tamaño*de*la*comunidad*: ...dispar
+
+* Parecidos razonables
+
+- Compilados
+- Fuertemente tipados
+- Recolector de Basura
+- Sintáxis parecida
+- Alta portabilidad
+- Permite definir clases
+- Potente librería básica
+- Reflexión
+- Hilos ligeros
+- ...
+
+* Diferencias irreconciliables
+
+- Genéricos
+- Funcionamiento interfaces
+- Binarios de compilación
+- Despliegue
+- Verbosidad (sí, está en la RAE)
+- Defer
+- Panic Vs Excepciones
+- Orientación a objetos
+- ...
+
+* Introducción a la introducción
+
+* Concurrencia: ¿Lo qué?
+
+- *Concurrencia* (Rob Pike)
+  Concurrency is the composition of independently executing computations
+  >> La concurrencia es la composición de trabajos de cómputo ejecutados independientemente
+
+  Concurrency is a way to structure software, particularly as a way to write clean code[...]
+  >> Es un modo de estructurar un programa, especialmente para escibir código limpio[...]
+- *Concurrencia* (RAE): coincidencia, concurso simultáneo de varias circunstancias
+- *Concurrencia* (Borja): capacidad de hacer las cosas de manera "temporalmente independiente"
+
+* Concurrencia: ¿Para qué?
+
+- *Simplicidad*: crear un programa más fácil de programar y mantener. Separar partes independientes de un programa
+- *Velocidad*: crear un programa que se ejecute más rápido. Poder realizar simultáneamente distintas tareas
+
+Realizar simultáneamente dos cosas es paralelizar (que está muy bien, pero estamos hablando de concurrencia)
+
+Una sutil diferencia entre la concurrencia y el paralelismo, es que en el paralelismo, es obligatorio tener más de un elemento de cómputo, mientras que en la concurrencia no es imprescindible.
+
+* Conceptos básicos
+
+* Conceptos básicos: Java
+
+- *Idea*central*de*la*concurrencia*: Sincronización de procesos independientes (Threads) mediante monitores
+- *Threads*: Objetos con un método que se ejecuta como un proceso independiente, pero mucho más ligero que un proceso del Sistema Operativo. 
+- *Monitores*: Mecanismo de sincronización. Define secciones críticas (acceso de un sólo hilo), haciendo esperar en caso de estar en uso. Todos los objetos tienen un monitor de sincronización (y en Java todo es un objeto)
+- *Todos*los*cores*: Los hilos de Java ocupan los distintos cores de la máquina a medida que se requieran
+- Acceso *atómico* a los tipos básicos (menos _long_ y _double_)
+- *Lema*de*concurrencia* (cosecha propia; no JRR Martin): sincronízate adecuadamente
+
+* Conceptos básicos: Go
+
+- *Idea*central*de*la*concurrencia*: Sincronización de procesos mediante canales (CSP)
+- *Go-rutinas*: Funciones que se ejecutan como procesos independientes, pero mucho más ligeros que un proceso del Sistema Operativo
+- *Canales*: Elementos equivalentes a un "pipe" de unix en el que se define el tipo. Permite transmitir información y (opcionalmente) sincronizar emisor y receptor
+- *Select*: Permite esperar para leer y escribir en distintos canales simultáneamente
+- *Múltiples*hilos*de*SO* (configurable)
+- *Sin*accesos*atómicos* garantizados por la definición del lenguaje (hay una librería para esto)
+- *Lema*de*concurrencia*: Do not communicate by sharing memory; instead, share memory by communicating
+
+* Monitores de Java Vs Canales de Go
+
+- *Monitor*: protege una sección de código
+
+  synchronize(miMonitor){
+    hacerAlgo();
+  }
+	
+  synchronized void hacerAlgo(){
+    //Operaciones "sincronizadas"
+  }
+
+- *Canal*: envía y recibe información de manera síncrona (con un posible buffer)
+
+  miCanal <- datoParaEnviar //Envía un dato a través de un canal
+	
+  datoRecibido, estáAbierto <- miCanal //Recibe un dato de un canal y si el canal sigue abierto
+	
+  close(miCanal) //Cierra un canal para indicar que ya no se va a enviar información por él
+La idea es radicalmente distinta. La forma de pensar es totalmente diferente. Por tanto, portar un programa concurrente de un lenguaje al otro puede dar un resultado idiomático o parecido, pero no las dos cosas
+
+* Wait de Java Vs Select en Go
+
+- En *Java* se puede esperar (Wait) por _una_ notificación (Notify). También hay que gestionar la posibilidad de que se interrumpa al hilo (InterruptedException).
+
+- En *Go* se espera al enviar o recibir un valor por un canal, o por _uno_o_varios_ canales si se usa un select. El *select* de Go tiene una sintáxis parecida a un switch
+
+	select {
+	case recibido, abierto := <-canalLecutra:
+		//Hacer cosas con "recibido" y con "abierto"
+	case canalEscritura <- valor:
+		//He enviado "valor"
+	default:
+		//No puedo hacer otra cosa (el resto de opciones son bloqueantes)
+	}
+
+- La diferencia clave es que un _select_ permite esperar *simultáneamente* por distintos eventos
+
+- Sería muy complejo implementar _select_ si no fuera parte del lenguaje
+
+* Escribiendo operaciones concurrentes
+
+* Operaciones básicas extraídas del tutorial de concurrencia de Java (Java juega en casa)
+
+- Lanzar un hilo
+
+- Esperar "un ratito"
+
+- Esperar por otro hilo
+
+- Interrumpir un hilo
+
+- Contador compartido
+
+* Lanzar un hilo en Java
+
+Opción 1: *Implementar* el interfaz _Runnable_
+
+.code JavaRunRunable.java
+
+Opción 2: *Extender* la clase _Thread_
+
+.code JavaRunThread.java
+
+* Lanzar un hilo en Go
+  
+Definir una función y lanzarla
+
+.code GoGorutina.go
+
+¿Qué preferís?
+
+* Esperar "un ratito" en Java
+
+.code JavaEsperarUnRatito.java
+
+* Esperar "un ratito" en Go
+
+.play GoEsperarRatito.go
+  
+Fácil, ¿no?
+
+* Esperar por otro hilo en Java
+
+.code JavaEsperarHilo.java
+
+* Esperar por otro hilo en Go
+
+.code GoEsperarHilo.go
+
+No es una cuestión de complejidad. Es una idea muy diferente
+  
+* Contador compartido en Java
+
+Las operaciones deben estar "sincronizadas" para evitar problemas
+
+Todos los hilos deben llamar a las operaciones
+
+.code JavaCodeSynchronized.java
+
+El lado más elegante de Java
+  
+* Contador compartido en Go (I)
+
+Una posible implementación: implementando los monitores como operaciones atómicas
+
+.code GoAtomicCounter.go /BEGIN/,/END/
+
+Extraído de: [[http://stackoverflow.com/questions/16783273/golang-best-way-to-implement-global-counters-for-highly-concurrent-applications][StackOverflow]]
+
+* Contador compartido en Go (II)
+
+Otra posible implementación: implementando los monitores como cerrojos
+
+.code GoMutexCounter.go /BEGIN/,/END/
+
+* Contador compartido en Go (III)
+
+Una implementación con canales (muy rebuscada)
+
+.play GoChanCounter.go /func/,/SLIDE CHANGE/
+
+* Contador compartido en Go (y IV)
+
+.code GoChanCounter.go /SLIDE CHANGE/,/END/
+
+* Manipulando los hilos
+
+* Notify y NotifyAll en Java
+
+- En *Java*, sirven para "despertar" a uno de los hilos que esperan (con un _Wait_) en un monitor, o "despertar" a todos. No confundir con _Interrupt_, que interrumpe "por las bravas" a un hilo.
+- En *Go*, el envío por un canal desbloquea siempre una única go-rutina
+- Una vez más, la traducción directa de conceptos es ... ineficaz
+
+* Gestionar hilos en general
+
+- En *Java*, puedes pensar en los _hilos_ como en procesos, con una entidad clara y que van a durar bastante tiempo
+- En *Go*, las go-rutinas son extremadamente desechables
+- En *Java* puedes conocer el ID de un hilo, añadirlo a una lista, agruparlo, puedes cambiarle la prioridad y muchas otras cosas más
+- En *Go*, no puedes hacer referencia a una go-rutina. Por tanto, no puedes hacer casi nada con ella de manera directa (sí puedes a través de canales...)
+- *Java* tiene un programador (_scheduler_) que se preocupa de que ningún hilo se quede sin pasar por la CPU y ayuda a que los hilos coexistan razonablemente
+- En *Go* el paso de una go-rutina a otra sólo está garantizado cuando la primera se bloquea (entrada salida, uso de canales...). Una go-rutina puede quedarse toda la CPU "sin querer" (bucles cerrados, sin llamadas a funciones...), aunque puede "devolver" la CPU mediante "runtime.Gosched()"
+
+* Interrumpir un hilo
+
+- En *Java* es posible interrumpir un hilo de ejecución desde otro hilo de ejecución (normalmente con la sana intención de matarlo)
+- En *Go* NO es posible (por medios estándar) interrumpir (o matar) otra go-rutina. Se suelen utilizar notificaciones vía canales.
+- *Go* obliga a programar "bien" la concurrencia
+- En *Java*, la posibilidad de interrumpir un hilo a otro obliga a la captura (o lanzamiento) de excepciones de interrupción cuando un hilo hace un _sleep_ o un _wait_
+- En *Go*, el programa termina cuando termina el hilo principal. En Java, el programa termina cuanto terminan TODOS los hilos (excepto daemons)
+- ¡Ojo! si una go-rutina se queda "perdida" (bloqueada, en un bucle inútil...), el recolector de basura no la limpia (... aunque en *Java* tampoco)
+
+* Objetos de sincronización de alto nivel
+
+* Lista de elementos sacada del tutorial de Java (Java sigue jugando en casa)
+
+- Locks (Cerrojos de exclusión mutua - Mutex locks)
+- Worker pool (banco de trabajadores / banco de tareas)
+- Concurrent collections
+- Atomic variables
+- ThreadLocalRandoms
+
+* Locks (Cerrojos de exclusión mutua - Mutex locks) en Java
+
+Tanto en Java como en Go, existen librerías para implementar los cerrojos
+
+.code JavaMutex.java
+
+* Locks (Cerrojos de exclusión mutua - Mutex locks) en Go
+
+.code GoMutex.go
+
+* Worker pool
+
+En *Java*, los hilos y los trabajadores son costosos (al menos más que en *Go*). Por eso (entre otras cosas) es muy útil tener un grupo de trabajadores estable.
+
+*Java* proporciona un marco para trabajar con este modelo.
+
+*Go* no dispone de un marco dentro del lenguaje (aunque hay varias implementaciones en github)
+
+Vamos a comparar el uso de las facilidades de *Java*, con una implementación funcional de un pool de trabajadores en *Go* (además, así vemos código, que hemos visto muy poco)
+
+* Worker pool - Java - By Oracle
+
+Ejemplo extraído de la documentación de la [[http://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ExecutorService.html][API Java]]
+
+.code JavaExecutorExample.java
+
+* Worker Pool - Go - By Borja (I)
+
+.play GoPool.go /package/,/SLIDE CHANGE OMIT/
+
+* Worker Pool - Go - By Borja (y II)
+
+.code GoPool.go /SLIDE CHANGE OMIT/,/END OMIT/
+
+* Colecciones concurrentes
+
+- Java dispone de implementaciones "thread-safe" de las colecciones (conjuntos, verctores...)
+- Go no dispone de una gran cantidad de colecciones y las que tiene no son "thread-safe" (como mínimo, hasta Go 1.3)
+
+* Variables atómicas (operaciones atómicas sobre variables)
+
+- En Java, el acceso a tipos básicos (menos _long_ y _double_) es atómico
+- En Go no hay operaciones con garantía de atomicidad
+- Sin embargo, lo habitual en Go es que una go-rutina tenga sus propias variables; la información que se comparte normalmente se hace a través de canales (que proporcionan sincronización)
+- En caso de necesitar sincronización de operaciones, es posible utilizar cerrojos
+- Hay librerías que realizan operaciones atómicas sobre tipos básicos
+
+* ThreadLocalRandoms
+
+- Es una clase Java que permite tener una implementación de _Math_._Random_() que no supone un cuello de botella entre distintos threads
+- En *Go* math.Rand es thread-safe. Además, se pueden implementar generadores independientes creando una nueva fuente con _math.rand.NewSource_ y creando un nuevo _math.rand.Rand_ a partir de él:
+
+.play GoLocalRandom.go
+
+Ejemplo extraído de [[https://gobyexample.com/random-numbers][Go by example]]
+
+* Temas en el tintero
+
+* Otras cosas que me hubiera gustado contar...
+
+- Java: Fork / Join y Executor Service
+- Java: Arrays.parallelSort()
+- Go: Clausuras y concurrencia
+- Go no utiliza flags tipo _volatile_ de java
+- Deadlocks notificados en Go "gratis". En Java hay que currárselo
+- Detección de condiciones de carrera en Go dentro de las herramientas del lenguaje. En Java hay herramientas y librerías, pero son "externas"
+- Go: _sync.Once_ para ejecución de operaciones una única vez
+- En Java sxisten librerías CSP (el paradigma de concurrencia de Go)
+- Cierre de canales, operaciones sobre canales cerrados o nulos...
+
+* Concluyendo con las conclusiones (personales)
+
+* Conclusiones
+
+- Java tiene una enorme madurez y unas enormes librerías para facilitar la concurrencia
+- ...pero el modelo de concurrencia que utiliza está basado en la sincronización y es difícil de escalar mentalmente este modelo
+- Pasar de Java a Go requiere cambiar la forma de pensar la concurrencia. Es un cambio profundo y de un nivel muy superior al lenguaje
+- En Go es mucho más sencillo implementar soluciones concurrentes, pero las librerías pueden aportar mucho más en el futuro
+- Go carece de muchas de las funcionalidades de gestión de la concurrencia de Java, pero en la mayor parte de los casos no se echan de menos
+- Implementar soluciones concurrentes en Go es mucho más agradecido (esfuerzo, pruebas, herramientas, potencia... y diversión)
+
+* ¿Cómo pasar de Padawan a Caballero?
+
+* De Padawan a Caballero - Charlas
+
+Go concurrency patterns (by Rob Pike): [[https://www.youtube.com/watch?v=f6kdp27TYZs][Charla (Inglés)]] - [[http://talks.golang.org/2012/concurrency.slide][Transparencias]]
+Concurrency is not parallelism (by Rob Pike): [[http://blog.golang.org/concurrency-is-not-parallelism][Post Go Blog]] - [[http://vimeo.com/49718712][Charla]] - [[http://talks.golang.org/2012/waza.slide][Transparencias]]
+Advanced Go concurrency patterns (by Sameer Ajmani): [[https://www.youtube.com/watch?v=QDDwwePbDtw][Charla (Inglés)]] - [[http://talks.golang.org/2013/advconc.slide][Transparencias]]
+public static void (charla Rob Pike): [[http://www.youtube.com/watch?v=5kj5ApnhPAE][Charla (Inglés)]]
+
+* De Padawan a Caballero - Artículos
+
+[[http://blog.golang.org/go-concurrency-patterns-timing-out-and][Go Concurrency Patterns: Timing out, moving on (by Andrew Gerrand)]]
+[[http://blog.golang.org/race-detector][Introducing the Go Race Detector (by Dmitry Vyukov and Andrew Gerrand)]]
+[[http://golang.org/doc/articles/race_detector.html][Data Race Detector (manual)]]
+
+* De Padawan a Caballero - Patrones
+
+[[https://code.google.com/p/go-wiki/wiki/Timeouts][Timeouts]]
+[[https://code.google.com/p/go-wiki/wiki/MutexOrChannel][Use a sync.Mutex or a channel?]]
+[[https://code.google.com/p/go-wiki/wiki/RateLimiting][Rate Limiting]]
+[[https://code.google.com/p/go-wiki/wiki/CommonMistakes][CommonMistakes - Using Closures with Goroutines]]
+[[http://www.golangpatterns.info/concurrency/coroutines][Coroutines]]
+[[http://www.golangpatterns.info/concurrency/futures][Futuros]]
+[[http://www.golangpatterns.info/concurrency/generators][Generators]]
+[[http://www.golangpatterns.info/concurrency/parallel-for-loop][Parallel For-Loop]]
+[[http://www.golangpatterns.info/concurrency/producer-consumer][Producer-Consumer]]
+[[http://golang.org/doc/effective_go.html#leaky_buffer][A leaky buffer]]
+
+* De Padawan a Caballero Go - Otros recursos
+
+[[http://golang.org/doc/codewalk/sharemem][Codewalk de concurrencia]]
+[[http://golang.org/doc/effective_go.html#concurrency][Filosofía de concurrencia]]
+
+[[gopadawan.wordpress.com][GoPadawan]] ;)
+
+* Notas finales
+
+Dibujo "Go Padawan" creado por [[mailto:smasusana@gmail.com][Susana Mayor]] sobre un trabajo original de [[http://reneefrench.blogspot.com/][Renee French]]
+
+Prometo que cuando escribo código que no es para una charla, lo documento
